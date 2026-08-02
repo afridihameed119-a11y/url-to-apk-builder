@@ -1,0 +1,53 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Target Website URL'
+        required: true
+      app_name:
+        description: 'App Name'
+        required: true
+        default: 'My Web App'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Build Web App Container
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "${{ github.event.inputs.app_name }}" "com.example.app" --web-dir "www"
+          mkdir www
+          echo '<script>window.location.href="${{ github.event.inputs.app_url }}";</script>' > www/index.html
+          npx cap add android
+          npx cap sync android
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Save APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.app_name }}-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          
